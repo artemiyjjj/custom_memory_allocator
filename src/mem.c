@@ -1,12 +1,11 @@
 #define _DEFAULT_SOURCE
 
 #include <assert.h>
+#include "mem.h"
+#include "mem_internals.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#include "mem_internals.h"
-#include "mem.h"
 #include "util.h"
 
 void debug_block(struct block_header* b, const char* fmt, ... );
@@ -69,6 +68,8 @@ void* heap_init( size_t initial ) {
 }
 
 #define BLOCK_MIN_CAPACITY 24
+
+typedef struct block_search_result block_search_result;
 
 /*  --- Разделение блоков (если найденный свободный блок слишком большой )--- */
 
@@ -136,20 +137,22 @@ static struct block_search_result find_good_or_last  ( struct block_header* rest
     if (!block) {
         return (struct block_search_result) { .type = BSR_CORRUPTED, .block = block};
     }
+    else {
+        do {
+            while (try_merge_with_next(block))
+                continue;
 
-    do {
-        while (try_merge_with_next(block))
-            continue;
+            if (block->is_free && block_is_big_enough(query, block)) {
+                return (struct block_search_result) {.type = BSR_FOUND_GOOD_BLOCK, .block = block};
+            }
+            if (!(block->next)) {
+                return (struct block_search_result) {.type = BSR_REACHED_END_NOT_FOUND, .block = block};
+            } else block = block->next;
 
-        if (block -> is_free && block_is_big_enough(query, block)) {
-            return (struct block_search_result) { .type = BSR_FOUND_GOOD_BLOCK, .block = block };
-        }
-        if (!(block -> next)) {
-            return (struct block_search_result) { .type = BSR_REACHED_END_NOT_FOUND, .block = block };
-        }
-        else block = block -> next;
-
-    } while (block);
+        } while (block);
+    }
+//    fuck linter
+    return (block_search_result) {0};
 }
 
 /*  Попробовать выделить память в куче начиная с блока `block` не пытаясь расширить кучу
@@ -221,7 +224,7 @@ static struct block_header* memalloc( size_t query, struct block_header* first_b
             return try_memalloc_existing(query, block_search.block).block;
         }
     }
-
+    return NULL;
 }
 
 void* _malloc( size_t query ) {

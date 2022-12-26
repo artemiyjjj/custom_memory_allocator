@@ -1,4 +1,4 @@
-#include "tests/includes/test4.h"
+#include "./includes/test4.h"
 
 void test4(FILE* out) {
     fprintf(out, "=========Test%" PRIu32 "=========\n", TEST_4_NUMBER);

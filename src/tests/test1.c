@@ -1,4 +1,4 @@
-#include "tests/includes/test1.h"
+#include "./includes/test1.h"
 
 
 void test1(FILE* out) {

@@ -1,10 +1,10 @@
 #ifndef MEMORY_ALLOCATOR_CONSTS_H
 #define MEMORY_ALLOCATOR_CONSTS_H
 
-#include "stdint.h"
-#include "inttypes.h"
+#include <inttypes.h>
 #include "mem.h"
 #include "mem_internals.h"
+#include <stdint.h>
 
 
 #define HEAP_INITIAL_SIZE 8192
