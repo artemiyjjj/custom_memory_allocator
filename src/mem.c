@@ -113,8 +113,9 @@ static bool try_merge_with_next( struct block_header* block ) {
     struct block_header* snd_block = block -> next;
     block_size snd_block_size = size_from_capacity(snd_block -> capacity);
 
+    block_capacity fst_block_capacity = {block -> capacity.bytes + snd_block_size.bytes};
+    block -> capacity = fst_block_capacity;
     block -> next = snd_block -> next;
-    block -> capacity.bytes += snd_block_size.bytes;
 
     return true;
 }
@@ -133,7 +134,7 @@ static struct block_search_result find_good_or_last  ( struct block_header* rest
         return (struct block_search_result) { .type = BSR_CORRUPTED, .block = block};
     }
     else {
-        do {
+        while (block) {
             while (try_merge_with_next(block))
                 continue;
 
@@ -142,9 +143,10 @@ static struct block_search_result find_good_or_last  ( struct block_header* rest
             }
             if (!(block->next)) {
                 break;
-            } else block = block->next;
-
-        } while (block);
+            } else {
+                block = block->next;
+            }
+        }
 
         return (struct block_search_result) {.type = BSR_REACHED_END_NOT_FOUND, .block = block};
     }
