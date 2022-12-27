@@ -1,11 +1,6 @@
 #define _DEFAULT_SOURCE
 
-#include <assert.h>
 #include "mem.h"
-#include "mem_internals.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include "util.h"
 
 void debug_block(struct block_header* b, const char* fmt, ... );
@@ -146,13 +141,13 @@ static struct block_search_result find_good_or_last  ( struct block_header* rest
                 return (struct block_search_result) {.type = BSR_FOUND_GOOD_BLOCK, .block = block};
             }
             if (!(block->next)) {
-                return (struct block_search_result) {.type = BSR_REACHED_END_NOT_FOUND, .block = block};
+                break;
             } else block = block->next;
 
         } while (block);
+
+        return (struct block_search_result) {.type = BSR_REACHED_END_NOT_FOUND, .block = block};
     }
-//    fuck linter
-    return (block_search_result) {0};
 }
 
 /*  Попробовать выделить память в куче начиная с блока `block` не пытаясь расширить кучу
@@ -161,7 +156,7 @@ static struct block_search_result try_memalloc_existing ( size_t query, struct b
     // try to find sufficient block
     struct block_search_result block_search = find_good_or_last(block, query);
     // if found, optimizing it and returning
-    if (block_search.type == BSR_FOUND_GOOD_BLOCK) {
+    if (block_search.type == BSR_FOUND_GOOD_BLOCK && block_search.block != NULL) {
         split_if_too_big(block, query);
         block_search.block -> is_free = false;
         return block_search;

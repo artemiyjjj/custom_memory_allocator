@@ -1,7 +1,7 @@
 #ifndef MEMORY_ALLOCATOR_TEST1_H
 #define MEMORY_ALLOCATOR_TEST1_H
-#include "mem.h"
-#include "tests_common.h"
+#include "../../mem.h"
+#include "./tests_common.h"
 
 #define TEST_1_NUMBER 1
 #define TEST_1_QUERY_SIZE 1024

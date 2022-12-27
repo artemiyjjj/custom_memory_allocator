@@ -1,8 +1,8 @@
 #ifndef MEMORY_ALLOCATOR_TEXT3_H
 #define MEMORY_ALLOCATOR_TEXT3_H
 
-#include "mem.h"
-#include "tests_common.h"
+#include "../../mem.h"
+#include "./tests_common.h"
 
 #define TEST_3_NUMBER 3
 #define TEST_3_QUERY_SIZE_1 1024

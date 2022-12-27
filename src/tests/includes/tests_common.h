@@ -2,8 +2,8 @@
 #define MEMORY_ALLOCATOR_CONSTS_H
 
 #include <inttypes.h>
-#include "mem.h"
-#include "mem_internals.h"
+#include "../../mem.h"
+#include "../../mem_internals.h"
 #include <stdint.h>
 
 

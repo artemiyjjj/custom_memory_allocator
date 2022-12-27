@@ -1,8 +1,8 @@
 #ifndef MEMORY_ALLOCATOR_TEST5_H
 #define MEMORY_ALLOCATOR_TEST5_H
 
-#include "mem.h"
-#include "tests_common.h"
+#include "../../mem.h"
+#include "./tests_common.h"
 
 #define TEST_5_NUMBER 5
 #define TEST_5_QUERY_SIZE_1 8192

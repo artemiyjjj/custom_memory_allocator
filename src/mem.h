@@ -1,12 +1,15 @@
 #ifndef _MEM_H_
 #define _MEM_H_
 
-
+#include <assert.h>
+#include "./mem_internals.h"
 #include <stdbool.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-
 #include <sys/mman.h>
+
+#include <unistd.h>
 
 #define HEAP_START ((void*)0x04040000)
 
