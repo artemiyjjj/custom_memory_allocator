@@ -156,7 +156,7 @@ static struct block_search_result try_memalloc_existing ( size_t query, struct b
     // try to find sufficient block
     struct block_search_result block_search = find_good_or_last(block, query);
     // if found, optimizing it and returning
-    if (block_search.type == BSR_FOUND_GOOD_BLOCK && block_search.block != NULL) {
+    if (block_search.type == BSR_FOUND_GOOD_BLOCK) {
         split_if_too_big(block, query);
         block_search.block -> is_free = false;
         return block_search;
@@ -197,9 +197,6 @@ static struct block_header* grow_heap( struct block_header* restrict last_block,
 
 /*  Реализует основную логику malloc и возвращает заголовок выделенного блока */
 static struct block_header* memalloc( size_t query, struct block_header* first_block) {
-    if (!first_block) {
-        return NULL;
-    }
     struct block_search_result block_search = try_memalloc_existing(query, first_block);
 
     if (block_search.type == BSR_CORRUPTED) {
