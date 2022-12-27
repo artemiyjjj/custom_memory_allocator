@@ -4,9 +4,9 @@
 #include "./mem_internals.h"
 #include <assert.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 
 #include <unistd.h>
