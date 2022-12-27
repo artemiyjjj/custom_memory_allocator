@@ -1,8 +1,8 @@
 #ifndef _MEM_H_
 #define _MEM_H_
 
-#include <assert.h>
 #include "./mem_internals.h"
+#include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
