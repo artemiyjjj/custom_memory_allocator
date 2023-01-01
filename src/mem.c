@@ -73,14 +73,14 @@ static bool block_splittable( struct block_header* restrict block, size_t query)
 }
 
 static bool split_if_too_big( struct block_header* block, size_t query ) {
-    if ((block == NULL) || block_splittable(block, query) == false) { return false; }
+    if ((block == NULL) || !block_splittable(block, query)) { return false; }
 
     // calculate new block's starting address and size
     void* new_block_address = block -> contents + query;
-    block_size new_block_size = { block -> capacity.bytes - query};
+    size_t new_block_size = block -> capacity.bytes - query;
 
     // initializing new block
-    block_init(new_block_address, new_block_size, block -> next);
+    block_init(new_block_address, (block_size) {new_block_size}, block -> next);
     // changing old block's values
     block -> next = new_block_address;
     block -> capacity.bytes = query;
@@ -134,13 +134,12 @@ static struct block_search_result find_good_or_last  ( struct block_header* rest
     }
     else {
         while (block) {
-            while (try_merge_with_next(block))
-                continue;
+            while (try_merge_with_next(block));
 
             if (block->is_free && block_is_big_enough(query, block)) {
                 return (struct block_search_result) {.type = BSR_FOUND_GOOD_BLOCK, .block = block};
             }
-            if (block->next == NULL) {
+            else if (block->next == NULL) {
                 break;
             } else {
                 block = block->next;
@@ -214,7 +213,8 @@ static struct block_header* memalloc( size_t query, struct block_header* first_b
             return NULL;
         }
         else {
-            return try_memalloc_existing(query, block_search.block).block;
+            block_search = try_memalloc_existing(query, block_search.block);
+            return block_search.block;
         }
     }
     return NULL;
@@ -234,6 +234,5 @@ void _free( void* mem ) {
   if (!mem) return ;
   struct block_header* block = block_get_header( mem );
   block -> is_free = true;
-  while (try_merge_with_next(block))
-      continue;
+  while (try_merge_with_next(block));
 }
