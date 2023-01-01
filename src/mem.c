@@ -155,6 +155,7 @@ static struct block_search_result find_good_or_last  ( struct block_header* rest
 /*  Попробовать выделить память в куче начиная с блока `block` не пытаясь расширить кучу
  Можно переиспользовать как только кучу расширили. */
 static struct block_search_result try_memalloc_existing ( size_t query, struct block_header* block ) {
+    query = size_max(query, BLOCK_MIN_CAPACITY);
     // try to find sufficient block
     struct block_search_result block_search = find_good_or_last(block, query);
     // if found, optimizing it and returning
@@ -176,7 +177,7 @@ static struct block_header* grow_heap( struct block_header* restrict last_block,
     }
     // getting address where we want to allocate new region
     void* expected_address = block_after(last_block);
-
+    query = size_max(query, BLOCK_MIN_CAPACITY);
     // trying to allocate new region at that address
     struct region new_region = alloc_region(expected_address, query);
 
