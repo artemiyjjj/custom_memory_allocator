@@ -169,7 +169,7 @@ static struct block_search_result try_memalloc_existing ( size_t query, struct b
 // try to get more memory from mmap
 static struct block_header* grow_heap( struct block_header* restrict last_block, size_t query ) {
     // validation
-    if (!last_block) {
+    if (last_block == NULL) {
         return NULL;
     }
     query = size_max(query, BLOCK_MIN_CAPACITY);   
@@ -193,6 +193,7 @@ static struct block_header* grow_heap( struct block_header* restrict last_block,
             return region.addr;
         }
     }
+    return NULL;
 }
 
 /*  Реализует основную логику malloc и возвращает заголовок выделенного блока */
