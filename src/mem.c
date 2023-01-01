@@ -191,7 +191,7 @@ static struct block_header* grow_heap( struct block_header* restrict last_block,
             return last_block;
         }
         else {
-            return new_region.addr;
+            return region.addr;
         }
     }
 }
