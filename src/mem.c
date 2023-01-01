@@ -31,21 +31,21 @@ static void* map_pages(void const* addr, size_t length, int additional_flags) {
 }
 
 /*  аллоцировать регион памяти и инициализировать его блоком */
-static struct region alloc_region( void const * addr, size_t query ) {
+static struct region alloc_region( void const * address, size_t query ) {
     // counting region size
     block_capacity region_expected_capacity = {query};
     size_t region_size = region_actual_size(size_from_capacity(region_expected_capacity).bytes);
     // trying to map region EXACTLY starting on provided address
-    void* region_addr_from_mmap = map_pages(addr, region_size, MAP_FIXED_NOREPLACE);
+    void* region_addr_from_mmap = map_pages(address, region_size, MAP_FIXED_NOREPLACE);
     // if failure, then trying to map region somewhere "near" the address
     if (region_addr_from_mmap == MAP_FAILED) {
-        region_addr_from_mmap = map_pages(addr, region_size, 0);
+        region_addr_from_mmap = map_pages(address, region_size, 0);
         // if this fails too, return uninitialized region
         if (region_addr_from_mmap == MAP_FAILED) { return REGION_INVALID; }
     }
 
     // region configuring
-    struct region region = { .addr = region_addr_from_mmap, .size = region_size, .extends = addr == region_addr_from_mmap };
+    struct region region = { .addr = region_addr_from_mmap, .size = region_size, .extends = address == region_addr_from_mmap };
     // initializing blocks
     block_size initial_block_size = { region_size };
     block_init(region_addr_from_mmap, initial_block_size, NULL);
@@ -82,8 +82,8 @@ static bool split_if_too_big( struct block_header* block, size_t query ) {
     // initializing new block
     block_init(new_block_address, new_block_size, block -> next);
     // changing old block's values
-    block -> capacity.bytes = query;
     block -> next = new_block_address;
+    block -> capacity.bytes = query;
 
     return true;
 
@@ -112,10 +112,9 @@ static bool try_merge_with_next( struct block_header* block ) {
     // merging
     struct block_header* snd_block = block -> next;
     block_size snd_block_size = size_from_capacity(snd_block -> capacity);
-
+    block -> next = snd_block -> next;
     block_capacity fst_block_capacity = {block -> capacity.bytes + snd_block_size.bytes};
     block -> capacity = fst_block_capacity;
-    block -> next = snd_block -> next;
 
     return true;
 }
@@ -141,7 +140,7 @@ static struct block_search_result find_good_or_last  ( struct block_header* rest
             if (block->is_free && block_is_big_enough(query, block)) {
                 return (struct block_search_result) {.type = BSR_FOUND_GOOD_BLOCK, .block = block};
             }
-            if (!(block->next)) {
+            if (block->next == NULL) {
                 break;
             } else {
                 block = block->next;
@@ -162,7 +161,6 @@ static struct block_search_result try_memalloc_existing ( size_t query, struct b
     if (block_search.type == BSR_FOUND_GOOD_BLOCK) {
         split_if_too_big(block, query);
         block_search.block -> is_free = false;
-        return block_search;
     }
     //otherwise pass result with the last found block or NULL value block
     return block_search;
@@ -175,21 +173,21 @@ static struct block_header* grow_heap( struct block_header* restrict last_block,
     if (!last_block) {
         return NULL;
     }
+    query = size_max(query, BLOCK_MIN_CAPACITY);   
     // getting address where we want to allocate new region
     void* expected_address = block_after(last_block);
-    query = size_max(query, BLOCK_MIN_CAPACITY);
     // trying to allocate new region at that address
-    struct region new_region = alloc_region(expected_address, query);
+    struct region region = alloc_region(expected_address, query);
 
     // if allocation failed
-    if (region_is_invalid(&new_region)) {
+    if (region_is_invalid(&region)) {
         return NULL;
     }
     else {
         // pushing new block to the linked list of blocks in heap
-        last_block->next = new_region.addr;
+        last_block->next = region.addr;
         // try to extend
-        if (new_region.extends && try_merge_with_next(last_block)) {
+        if (try_merge_with_next(last_block)) {
             return last_block;
         }
         else {
@@ -212,7 +210,7 @@ static struct block_header* memalloc( size_t query, struct block_header* first_b
 
     else if (block_search.type == BSR_REACHED_END_NOT_FOUND){
         block_search.block = grow_heap(block_search.block, query);
-        if (!block_search.block) {
+        if (block_search.block == NULL) {
             return NULL;
         }
         else {
