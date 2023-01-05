@@ -34,21 +34,22 @@ static void* map_pages(void const* addr, size_t length, int additional_flags) {
 static struct region alloc_region( void const * address, size_t query ) {
     // counting region size
     block_capacity region_expected_capacity = {query};
-    size_t region_size = region_actual_size(size_from_capacity(region_expected_capacity).bytes);
+    block_size region_size = size_from_capacity(region_expected_capacity);
+    size_t region_size_t = region_actual_size(region_size.bytes);
     // trying to map region EXACTLY starting on provided address
-    void* region_addr_from_mmap = map_pages(address, region_size, MAP_FIXED_NOREPLACE);
+    void* region_addr_from_mmap = map_pages(address, region_size_t, MAP_FIXED_NOREPLACE);
     // if failure, then trying to map region somewhere "near" the address
     if (region_addr_from_mmap == MAP_FAILED) {
-        region_addr_from_mmap = map_pages(address, region_size, 0);
+        region_addr_from_mmap = map_pages(address, region_size_t, 0);
         // if this fails too, return uninitialized region
         if (region_addr_from_mmap == MAP_FAILED) { return REGION_INVALID; }
     }
 
-    // region configuring
-    struct region region = { .addr = region_addr_from_mmap, .size = region_size, .extends = address == region_addr_from_mmap };
     // initializing blocks
-    block_size initial_block_size = { region_size };
+    block_size initial_block_size = { region_size_t };
     block_init(region_addr_from_mmap, initial_block_size, NULL);
+    // region configuring
+    struct region region = { .addr = region_addr_from_mmap, .size = region_size_t, .extends = address == region_addr_from_mmap };
 
     return region;
 }
@@ -73,19 +74,22 @@ static bool block_splittable( struct block_header* restrict block, size_t query)
 }
 
 static bool split_if_too_big( struct block_header* block, size_t query ) {
-    if ((block == NULL) || !block_splittable(block, query)) { return false; }
+    if ((block == NULL) || !block_splittable(block, query)){
+        return false;
+    }
+    else {
+        // calculate new block's starting address and size
+        void *new_block_address = block->contents + query;
+        size_t new_block_size = block->capacity.bytes - query;
 
-    // calculate new block's starting address and size
-    void* new_block_address = block -> contents + query;
-    size_t new_block_size = block -> capacity.bytes - query;
+        // initializing new block
+        block_init(new_block_address, (block_size) {new_block_size}, block->next);
+        // changing old block's values
+        block->next = new_block_address;
+        block->capacity.bytes = query;
 
-    // initializing new block
-    block_init(new_block_address, (block_size) {new_block_size}, block -> next);
-    // changing old block's values
-    block -> next = new_block_address;
-    block -> capacity.bytes = query;
-
-    return true;
+        return true;
+    }
 
 }
 
@@ -158,7 +162,7 @@ static struct block_search_result try_memalloc_existing ( size_t query, struct b
     struct block_search_result block_search = find_good_or_last(block, query);
     // if found, optimizing it and returning
     if (block_search.type == BSR_FOUND_GOOD_BLOCK) {
-        split_if_too_big(block, query);
+        split_if_too_big(block_search.block, query);
         block_search.block -> is_free = false;
     }
     //otherwise pass result with the last found block or NULL value block
@@ -222,6 +226,7 @@ static struct block_header* memalloc( size_t query, struct block_header* first_b
 }
 
 void* _malloc( size_t query ) {
+    query = size_max(query, BLOCK_MIN_CAPACITY);
   struct block_header* const addr = memalloc( query, (struct block_header*) HEAP_START );
   if (addr) return addr->contents;
   else return NULL;
