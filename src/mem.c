@@ -9,9 +9,9 @@ void debug(const char* fmt, ... );
 extern inline block_size size_from_capacity( block_capacity cap );
 extern inline block_capacity capacity_from_size( block_size sz );
 
-static bool block_is_big_enough( size_t query, struct block_header* block ) { return block->capacity.bytes >= query; }
+static bool block_is_big_enough( size_t query, struct block_header* block ) { return block && block->capacity.bytes >= query; }
 static size_t pages_count ( size_t mem ) { return mem / getpagesize() + ((mem % getpagesize()) > 0); }
-static size_t round_pages ( size_t mem ) { return getpagesize() * pages_count( mem ) ; }
+static size_t round_pages ( size_t mem ) { return getpagesize() * pages_count( mem ); }
 
 static void block_init( void* restrict addr, block_size block_sz, void* restrict next ) {
   *((struct block_header*)addr) = (struct block_header) {
@@ -34,22 +34,22 @@ static void* map_pages(void const* addr, size_t length, int additional_flags) {
 static struct region alloc_region( void const * address, size_t query ) {
     // counting region size
     block_capacity region_expected_capacity = {query};
-    block_size region_size = size_from_capacity(region_expected_capacity);
-    size_t region_size_t = region_actual_size(region_size.bytes);
+    block_size region_size_from_query = size_from_capacity(region_expected_capacity);
+    size_t region_size = region_actual_size(region_size_from_query.bytes);
     // trying to map region EXACTLY starting on provided address
-    void* region_addr_from_mmap = map_pages(address, region_size_t, MAP_FIXED_NOREPLACE);
+    void* region_addr_from_mmap = map_pages(address, region_size, MAP_FIXED_NOREPLACE);
     // if failure, then trying to map region somewhere "near" the address
     if (region_addr_from_mmap == MAP_FAILED) {
-        region_addr_from_mmap = map_pages(address, region_size_t, 0);
+        region_addr_from_mmap = map_pages(address, region_size, 0);
         // if this fails too, return uninitialized region
         if (region_addr_from_mmap == MAP_FAILED) { return REGION_INVALID; }
     }
 
     // initializing blocks
-    block_size initial_block_size = { region_size_t };
+    block_size initial_block_size = {region_size };
     block_init(region_addr_from_mmap, initial_block_size, NULL);
     // region configuring
-    struct region region = { .addr = region_addr_from_mmap, .size = region_size_t, .extends = address == region_addr_from_mmap };
+    struct region region = { .addr = region_addr_from_mmap, .size = region_size, .extends = address == region_addr_from_mmap };
 
     return region;
 }
@@ -100,7 +100,7 @@ static void* block_after( struct block_header const* block ) {
   return  (void*) (block->contents + block->capacity.bytes);
 }
 
-static bool blocks_continuous ( struct block_header const* fst, struct block_header const* snd ) {
+static bool blocks_continuous (struct block_header const*restrict fst, struct block_header const*restrict snd ) {
   return (void*)snd == block_after(fst);
 }
 
@@ -133,25 +133,27 @@ struct block_search_result {
 
 // find block for query size
 static struct block_search_result find_good_or_last  ( struct block_header* restrict block, size_t query ) {
+    struct block_search_result search_result = { .type = BSR_CORRUPTED, .block = block};
     if (!block) {
-        return (struct block_search_result) { .type = BSR_CORRUPTED, .block = block};
+        return search_result;
     }
-    else {
-        while (block) {
-            while (try_merge_with_next(block));
+    while (block) {
+        while (try_merge_with_next(block));
 
-            if (block->is_free && block_is_big_enough(query, block)) {
-                return (struct block_search_result) {.type = BSR_FOUND_GOOD_BLOCK, .block = block};
-            }
-            else if (block->next == NULL) {
-                break;
-            } else {
-                block = block->next;
-            }
+        if (block->is_free && block_is_big_enough(query, block)) {
+            search_result.type = BSR_FOUND_GOOD_BLOCK;
+            search_result.block = block;
+            return search_result;
         }
-
-        return (struct block_search_result) {.type = BSR_REACHED_END_NOT_FOUND, .block = block};
+        else if (block->next == NULL) {
+            break;
+        }
+        block = block->next;
     }
+
+    search_result.type = BSR_REACHED_END_NOT_FOUND;
+    search_result.block = block;
+    return search_result;
 }
 
 /*  Попробовать выделить память в куче начиная с блока `block` не пытаясь расширить кучу
@@ -186,18 +188,16 @@ static struct block_header* grow_heap( struct block_header* restrict last_block,
     if (region_is_invalid(&region)) {
         return NULL;
     }
-    else {
-        // pushing new block to the linked list of blocks in heap
-        last_block->next = region.addr;
-        // try to extend
-        if (try_merge_with_next(last_block)) {
-            return last_block;
-        }
-        else {
-            return region.addr;
-        }
+    // pushing new block to the linked list of blocks in heap
+    last_block->next = region.addr;
+    // try to extend
+    if (try_merge_with_next(last_block)) {
+        return last_block;
     }
-    return NULL;
+    else {
+        return region.addr;
+    }
+
 }
 
 /*  Реализует основную логику malloc и возвращает заголовок выделенного блока */
